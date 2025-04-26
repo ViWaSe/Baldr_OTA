@@ -1,7 +1,7 @@
 # Wifi network module for Prapberry pi pico and ESP-32
 # configuration stored in JSON-File
 # works with micropython v1.21.0 and higher
-version = '6.0.1'
+version = '6.0.2'
 
 import utime as time
 import network, rp2, machine
@@ -9,6 +9,7 @@ from json_config_parser import config
 from logger import Log
 
 # Error-Log
+time.sleep(2)
 wlan = network.WLAN(network.STA_IF)
 
 # Get configuration
@@ -46,14 +47,16 @@ def led_flash(pause=1000):
     led_onboard.off()
 
 # Connect to the Network
-def connect(max_attempts=5):
+def connect(max_attempts=500):
     global wlan
     network.hostname(wlanName)
     wlan.config(pm=0xa11140)
     attempts = 0
     while attempts < max_attempts:
         if not wlan.isconnected():
-            Log('WIFI', f'[ INFO ]: Connecting to {wlanSSID} ...')
+            Log('WIFI', f'[ INFO  ]: Connecting to {wlanSSID} ...')
+            wlan.active(False)
+            time.sleep(0.5)
             wlan.active(True)
             wlan.connect(wlanSSID, wlanPW)
             while not wlan.isconnected():
@@ -63,22 +66,22 @@ def connect(max_attempts=5):
                     return
                 elif wstat == 'LINK_UP':
                     break
-                Log('WIFI', f'[ INFO ]: Connection status: {wstat}, retrying...')
+                Log('WIFI', f'[ INFO  ]: Connection not yet established | status: {wstat}, retrying...')
                 led_flash()
                 time.sleep(1)
         if wlan.isconnected():
             led_onboard.on()
-            Log('WIFI', '[ INFO ]: Connected!')
+            Log('WIFI', '[ INFO  ]: Connected!')
             w_status = wlan.ifconfig()
             Log('WIFI', '[ INFO ]: IP = ' + w_status[0])
             saveIP(w_status[0])
             return
         else:
-            Log('WIFI', f'[ FAIL ]: Connection failed! Status: {wstat}, | retrying...')
+            Log('WIFI', f'[ FAIL  ]: Connection failed! Status: {wstat}, | retrying...')
             attempts += 1
             led_onboard.off()
             time.sleep(2)
-    Log('WIFI', '[ FAIL ]: Maximum retry attempts reached. Connection failed.')
+    Log('WIFI', '[ FAIL  ]: Maximum retry attempts reached. Connection failed.')
 
 # Check Wifi connection status. If not successful, try to reconnect.
 def check_status(retries=3, delay=2):
@@ -86,16 +89,16 @@ def check_status(retries=3, delay=2):
     global wlan
     try:
         addr = socket.getaddrinfo("google.com", 80)
-        Log('WIFI', '[ INFO ]: Successfully tested network connection!')
+        Log('WIFI', '[ INFO  ]: Successfully tested network connection!')
         return True
     except Exception as e:
-        Log('WIFI', '[ FAIL ]: Wifi connection lost - ' + str(e))
+        Log('WIFI', '[ FAIL  ]: Wifi connection lost - ' + str(e))
         if retries > 0:
-            Log('WIFI', '[ INFO ]: Retrying connection...')
-            Log('WIFI', '[ INFO ]: Number of retries: ' + str(retries))
+            Log('WIFI', '[ INFO  ]: Retrying connection...')
+            Log('WIFI', '[ INFO  ]: Number of retries: ' + str(retries))
             time.sleep(delay)
             connect() 
             return check_status(retries - 1, delay)
         else:
-            Log('WIFI', '[ FAIL ]: Failed to reconnect after several attempts.')
+            Log('WIFI', '[ FAIL  ]: Failed to reconnect after several attempts.')
             return False

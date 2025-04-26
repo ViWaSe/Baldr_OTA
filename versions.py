@@ -1,18 +1,20 @@
 # harvest the Versions of the modules
 
-from PicoClient import Version as Client
+from PicoClient import version as Client
 from PicoWifi import version as Wifi
-from order import Version as Order
+from order import version as Order
 from NTP import Version as NTP
-from LightControl import Version as LC
+from LightControl import version as LC
 from json_config_parser import version as json
-from switch import Version as dev_control
+from mqtt_handler import version as mqtt_handler
 
-Versions = {'Client': Client, 'Wifi': Wifi, 'Order': Order, 'NTP': NTP, 'LightControl': LC, 'json': json, 'dev_control': dev_control}
+versions = {'main': '6.1.1', 'Client': Client, 'Wifi': Wifi, 'Order': Order, 'NTP': NTP, 'LightControl': LC, 'json': json, 'dev_control': mqtt_handler}
 
 def by_module(module):
-    return Versions[module]
+    return versions[module]
 
 def all():
-    return Versions
+    return versions
 
+def depencies():
+    pass

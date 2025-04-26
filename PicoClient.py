@@ -4,7 +4,7 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-Version = '6.0.1'
+version = '6.0.1'
 
 import utime as time # type: ignore
 from mqtt_handler import MQTTHandler
@@ -21,12 +21,6 @@ mqttPort        = settings.get('MQTT-config', 'Port')
 mqttUser        = settings.get('MQTT-config', 'User')
 mqttPW          = settings.get('MQTT-config', 'PW')
 sensor_opt      = settings.get('Options', 'Sensor')
-test_interval   = settings.get('MQTT-config', 'check_intervall')
-
-# Create 3 MQTT-Topics for this device
-topic_order    = str(mqttClient+'/order') # type: ignore
-topic_status   = str(mqttClient+'/status') # type: ignore
-topic_conf     = str(mqttClient+'/config') # type: ignore
 
 # Create empty variables for watchdog and for the led_toggle-function
 ledCount    = 0
@@ -84,7 +78,7 @@ def watchdog(watch_time=1800, cooldown=5):
         last_msg = pico_time 
         watchdog_last_chk = pico_time 
         
-        mqtt.publish(topic_status, 'watchdog', retain=False)
+        mqtt.publish(f'{mqttClient}/status', 'watchdog', retain=False)
 
         if wd_counter % 2 == 0:
             Log('Watchdog', '[ CHECK ]: No Message received. Checking network...')
@@ -112,7 +106,7 @@ def go():
             time.sleep(5)
             continue
 
-        mqtt.subscribe(topic_order)
+        mqtt.subscribe(f'{mqttClient}/order')
         Log('MQTT', '[ INFO  ]: MQTT connected, listening for messages...')
         
         try:

@@ -1,46 +1,53 @@
 # Smarthome Order-Modul by vwall
 
-version = '6.0.2'
+version = '6.0.1'
 
 import json
-from LightControl import LC
+from LightControl import LightControl
 from logger import Log
 from hex_to_rgb import hex_to_rgb
+
+# TODO: Command Map testen | Error-Handling und logging testen
 
 class Proc:
     def __init__(self, data=None):
         if data is None:
-            raise ValueError("Data error.")
+            raise ValueError("Es müssen gültige Daten übergeben werden.")
         self.data = data
     
     def LC(self):
         command = self.data['command']
         payload = self.data['payload']
         speed = self.data['speed']
-        if 'format' in self.data:
-            color_format = self.data['format']
-            if color_format == 'hex':
-                color = hex_to_rgb(str(payload)) if color_format == 'hex' else payload
-            else:
-                color = payload
+        color_format = self.data['format']
+        LC = LightControl()
 
+        color = hex_to_rgb(str(payload)) if color_format == 'hex' else payload
+        
+        """
+        try:
+            LC.set_led(new_device=self.data['device']) 
+        except KeyError:
+            Log('Order', '[ ERROR  ]: No device is set. Order passed')
+        except Exception as e:
+            Log(f'Order', '[ ERROR  ]: Error during LED-change {e}')
+        """
         command_map = {
-            'dim': lambda: LC.set_dim(payload, speed),
+            'dim': lambda: LC.set_dim(payload),
             'line': lambda: LC.line(color, speed),
-            'change_autostart': lambda: LC.change_autostart(self.data['new_value']),
-            'change_pixel_qty': lambda: LC.change_pixel_qty(self.data['new_value'])
+            'on_off': lambda: LC.on_off(payload)
         }
         
         if command in command_map:
             command_map[command]()
-            # Log('Order', f'[ INFO  ]: Order sucessful. Command = {command}')
+            Log('Order', f'[ INFO  ]: Order sucessful. Command = {command}')
             return True
         else:
             Log('Order', f'[ INFO  ]: Command not found. Command = {command}')
             return 'LC: Command not found'
 
     def admin(self):
-
+        LC = LightControl()
         command = self.data['command']
         
         command_map = {
@@ -67,10 +74,15 @@ class Proc:
             return version.get(self.data['sub_system'], 'Version nicht gefunden.') # type: ignore
 
     def change_qty(self):
-        pass
+        LC = LightControl()
+        LC.set_led_qty(self.data['new'])
+        Log('LC', f'[ INFO  ]: LED-Qty changed to {self.data["new"]}')
+        return 'OK'
     
     def change_autostart_setting(self):
-
+        LC = LightControl()
+        LC.set_autostart_state(self.data['new'])
+        Log('LC', f'[ INFO  ]: Autostart flag changed to {self.data["new"]}')
         pass
 
 def run(json_string):
@@ -90,8 +102,9 @@ def run(json_string):
         order_instance = Proc(data)
         call = getattr(order_instance, order)()
         return call
+    # TODO: Checken, ob JSONDecodeError funktioniert bzw. existiert!
     except json.JSONDecodeError: # type: ignore
-        Log('Order', '[ ERROR ]: JSON-Format-Error')
+        Log('Order', '[ ERROR  ]: JSON-Format-Error')
         return 'Ungültiges JSON-Format.'
     except KeyError as e:
         Log('Order', f'[ ERROR ]: Key-Error / Key not found - {e}')
@@ -102,4 +115,3 @@ def run(json_string):
     except Exception as e:
         Log('Order', f'[ ERROR ]: Unknown Error - {e}')
         return f"Unknown Error: {e}"
-

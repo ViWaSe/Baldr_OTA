@@ -2,7 +2,7 @@ from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
-Version = '1.0'
+version = '1.1'
 
 class MQTTHandler:
     def __init__(self, client_id, broker, user=None, password=None):
@@ -28,15 +28,15 @@ class MQTTHandler:
     def on_message(self, topic, msg):
         try:
             nachricht = msg.decode('utf-8')
-            Log('MQTT', f'[ INFO  ]: Received message: {nachricht}')
+            # Log('MQTT', f'[ INFO  ]: Received message: {nachricht}')
             
             import ujson as json
             payload = json.loads(nachricht)
 
-            if payload.get('Type') == 'admin' and payload.get('command') == 'get_update':
-                module = payload.get('module', 'main.py')   # get module name, if not included in JSON, use main.py
-                url = payload.get('file_url')
-                self.perform_ota_update(module, url)
+            if payload.get('sub_type') == 'admin' and payload.get('command') == 'get_update':
+                modules = payload.get('module')  # string or list
+                base_url = payload.get('base_url', 'PUT_INYOUR_URL')
+                self.perform_ota_update(modules, base_url)
                 return
 
             from order import run
@@ -52,6 +52,7 @@ class MQTTHandler:
         if self.client:
             self.client.subscribe(topic)
             Log('MQTT', f'[ INFO  ]: Subscribed to {topic}')
+            self.publish(self.client_id, 'online')
 
     def publish(self, topic, message, retain=False):
         # Publish-function
@@ -82,39 +83,36 @@ class MQTTHandler:
         Log('MQTT', '[ RECONNECT ]: Reconnected successfully!')
     
     # Update-function
-    def perform_ota_update(self, module_name='main.py', file_url='https://github.com/ViWaSe/Baldr/blob/main/6.0.1/main.py'):
+    def perform_ota_update(self, module_name='all', base_url='BASE_URL'):
         import urequests as requests
         import os
-        if '/' in module_name or '..' in module_name:
-            Log('OTA', '[ FAIL  ]: Invalid module name')
-            return
-        try:
-            Log('OTA', f'[ INFO  ]: Downloading update: {module_name}')
-            response = requests.get(file_url)
-            if response.status_code == 200:
-                existing_content = ''
-                if module_name in os.listdir():
-                    with open(module_name, 'r') as f:
-                        existing_content = f.read()
 
-                if existing_content != response.text:
-                    with open(module_name, "w") as f:
+        def update_single_module(name, url):
+            try:
+                Log('OTA', f'[ INFO  ]: Downloading {name} from {url}')
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(name, "w") as f:
                         f.write(response.text)
-                    Log('OTA', f'[ INFO  ]: {module_name} updated successfully')
+                    Log('OTA', f'[ INFO  ]: {name} updated successfully')
+                    self.publish(f"{self.client_id}/status", f'{{"msg": "{name} update successful"}}')
                 else:
-                    Log('OTA', f'[ INFO  ]: No update needed for {module_name}')
+                    Log('OTA', f'[ FAIL  ]: Could not download {name}')
+                    self.publish(f"{self.client_id}/status", f'{{"msg": "update failed for {name}"}}')
+            except Exception as e:
+                Log('OTA', f'[ FAIL  ]: Update error for {name} - {e}')
+                self.publish(f"{self.client_id}/status", f'{{"msg": "update error for {name}: {e}"}}')
 
-                self.publish(f"{self.client_id}/status", f'{{"msg": "{module_name} update successful"}}')
-
-                # Optionaler Reboot nur bei main.py
-                if module_name.lower() == "main.py":
-                    import machine
-                    machine.reset()
-
-            else:
-                Log('OTA', f'[ FAIL  ]: Could not download {module_name}')
-                self.publish(f"{self.client_id}/status", f'{{"msg": "update failed for {module_name}"}}')
-
-        except Exception as e:
-            Log('OTA', f'[ FAIL  ]: Update error - {e}')
-            self.publish(f"{self.client_id}/status", f'{{"msg": "update error: {e}"}}')
+        if isinstance(module_name, list):
+            for mod in module_name:
+                url = base_url + mod
+                update_single_module(mod, url)
+            Log('OTA', '[ INFO  ]: Update done. Will now reboot ...')
+            import machine
+            machine.reset()
+        else:
+            url = base_url + module_name
+            update_single_module(module_name, url)
+            if module_name.lower() == "main.py":
+                import machine
+                machine.reset()
