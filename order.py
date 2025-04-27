@@ -71,13 +71,17 @@ class Proc:
         pass
     
     def change_autostart_setting(self):
-
         pass
 
     def get_log(self, sub):
-        with open(sub, 'r') as f:
-            cont = f.read()
-        return cont
+        try:
+            with open(sub, 'r') as f:
+                cont = f.read()
+                if not cont:
+                    return "Logdatei ist leer."
+                return cont
+        except Exception as e:
+            return f"Fehler beim Lesen der Logdatei: {e}"
 
 def run(json_string):
     try:
