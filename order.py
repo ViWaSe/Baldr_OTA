@@ -1,6 +1,6 @@
 # Smarthome Order-Modul by vwall
 
-version = '6.0.2'
+version = '6.1.1'
 
 import json
 from LightControl import LC
@@ -49,7 +49,8 @@ class Proc:
             'get_version': lambda: self.get_version(),
             'change_qty': lambda: self.change_qty(),
             'get_qty': lambda: LC.pixel,
-            'set_autostart': lambda: self.change_autostart_setting()
+            'set_autostart': lambda: self.change_autostart_setting(),
+            'get_log': lambda: self.get_log(self.data['logfile'])
         }
         
         return command_map.get(command, lambda: 'Command not found')()
@@ -72,6 +73,11 @@ class Proc:
     def change_autostart_setting(self):
 
         pass
+
+    def get_log(self, sub):
+        with open(sub, 'r') as f:
+            cont = f.read()
+        return cont
 
 def run(json_string):
     try:
