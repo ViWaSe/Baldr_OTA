@@ -1,6 +1,6 @@
 # Smarthome Order-Modul by vwall
 
-version = '6.1.1'
+version = '6.2.1'
 
 import json
 from LightControl import LC
@@ -50,7 +50,10 @@ class Proc:
             'change_qty': lambda: self.change_qty(),
             'get_qty': lambda: LC.pixel,
             'set_autostart': lambda: self.change_autostart_setting(),
-            'get_log': lambda: self.get_log(self.data['logfile'])
+            'get_log': lambda: self.get_log(self.data['logfile']),
+            'set_GMT_wintertime': lambda: self.change_GMT_time(winter=self.data['new_value']),
+            'set_GMT_offset': lambda: self.change_GMT_time(GMT_adjust=self.data['new_value']),
+            'get_timestamp': lambda: self.get_timestamp()
         }
         
         return command_map.get(command, lambda: 'Command not found')()
@@ -59,13 +62,30 @@ class Proc:
         Log('MQTT', '[ INFO  ]: Broker is offline under normal conditions')
         return 'conn_lost'
 
+    def get_timestamp(self):
+        from NTP import timestamp
+        return timestamp()
+    
+    def change_GMT_time(self, winter=True, GMT_adjust=3600):
+        from json_config_parser import config
+        time_setting    = config('/params/time_setting.json', layers=1)
+        use_winter_time = time_setting.get('use_winter_time')
+        GMT_offset      = time_setting.get('GMT_offset')
+        
+        if winter != use_winter_time:
+            time_setting.save_param('use_winter_time', winter)
+            Log('NTP', f'[ INFO  ]: Changed Wintertime to {winter}')
+        if GMT_adjust != GMT_offset:
+            time_setting.save_param('GMT_offset', GMT_adjust)
+            Log('NTP', f'[ INFO  ]: Adjusted GMT-Offset to {GMT_adjust}')
+        pass
 
     def get_version(self):
-        from PicoClient import version
+        import versions
         if self.data['sub_system'] == 'all':
-            return version
+            return versions.all()
         else:
-            return version.get(self.data['sub_system'], 'Version nicht gefunden.') # type: ignore
+            return versions.by_module(self.data['sub_system']) # type: ignore
 
     def change_qty(self):
         pass
@@ -90,7 +110,7 @@ def run(json_string):
         # Messager-version check
         if 'messager_version' in data:
             version = data['messager_version']
-            if float(version) == "1.2": 
+            if version == "1.2": 
                 order = data['sub_type']
             else:
                 order = data['Type']
@@ -100,9 +120,6 @@ def run(json_string):
         order_instance = Proc(data)
         call = getattr(order_instance, order)()
         return call
-    except json.JSONDecodeError: # type: ignore
-        Log('Order', '[ ERROR ]: JSON-Format-Error')
-        return 'Ungültiges JSON-Format.'
     except KeyError as e:
         Log('Order', f'[ ERROR ]: Key-Error / Key not found - {e}')
         return f"Key not found: {e}"
