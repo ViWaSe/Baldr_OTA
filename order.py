@@ -13,6 +13,7 @@ class Proc:
             raise ValueError("Data error.")
         self.data = data
     
+    # LightControl-functions
     def LC(self):
         command = self.data['command']
         payload = self.data['payload']
@@ -39,6 +40,7 @@ class Proc:
             Log('Order', f'[ INFO  ]: Command not found. Command = {command}')
             return 'LC: Command not found'
 
+    # Admin-Functions
     def admin(self):
 
         command = self.data['command']
@@ -53,32 +55,48 @@ class Proc:
             'get_log': lambda: self.get_log(self.data['logfile']),
             'set_GMT_wintertime': lambda: self.change_GMT_time(winter=self.data['new_value']),
             'set_GMT_offset': lambda: self.change_GMT_time(GMT_adjust=self.data['new_value']),
-            'get_timestamp': lambda: self.get_timestamp()
+            'get_timestamp': lambda: self.get_timestamp(),
+            'reboot': lambda: self.reboot()
         }
         
         return command_map.get(command, lambda: 'Command not found')()
     
+    # Log when Broker is offfline
     def handle_offline(self):
         Log('MQTT', '[ INFO  ]: Broker is offline under normal conditions')
         return 'conn_lost'
 
+    # Reboot-request
+    def reboot(self):
+        try: 
+            pw = self.data['password']
+        except:
+            return 'No password in JSON. Try >loki<!'
+        if pw == 'loki':
+            import machine
+            machine.reset()
+        else:
+            return 'Wrong password. Try >loki<!'
+    # Get Timestamp from NTP-Module
     def get_timestamp(self):
         from NTP import timestamp
         return timestamp()
     
+    # Change NTP-Settings (Wintertime and GMT-Osffset)
     def change_GMT_time(self, winter=True, GMT_adjust=3600):
         from json_config_parser import config
         time_setting    = config('/params/time_setting.json', layers=1)
-        use_winter_time = time_setting.get('use_winter_time')
-        GMT_offset      = time_setting.get('GMT_offset')
+        use_winter_time = time_setting.get(param='use_winter_time')
+        GMT_offset      = time_setting.get(param='GMT_offset')
         
         if winter != use_winter_time:
-            time_setting.save_param('use_winter_time', winter)
+            time_setting.save_param(param='use_winter_time', new_value=winter)
             Log('NTP', f'[ INFO  ]: Changed Wintertime to {winter}')
+            return f'set wintertime to {winter}. Changes will take affect after reboot'
         if GMT_adjust != GMT_offset:
             time_setting.save_param('GMT_offset', GMT_adjust)
             Log('NTP', f'[ INFO  ]: Adjusted GMT-Offset to {GMT_adjust}')
-        pass
+            return f'set GMT-Offset to {GMT_adjust}. Changes will take affect after reboot'
 
     def get_version(self):
         import versions
@@ -98,11 +116,12 @@ class Proc:
             with open(sub, 'r') as f:
                 cont = f.read()
                 if not cont:
-                    return "Logdatei ist leer."
+                    return 'Logfile is empty!'
                 return cont
         except Exception as e:
-            return f"Fehler beim Lesen der Logdatei: {e}"
+            return f'Error reading Logfile: {e}'
 
+# Run a JSON-String
 def run(json_string):
     try:
         data = json.loads(json_string)

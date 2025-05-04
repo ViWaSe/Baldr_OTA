@@ -1,3 +1,5 @@
+# New MQTT-Handler Module for Baldr V6.x
+
 from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
@@ -12,8 +14,8 @@ class MQTTHandler:
         self.password = password
         self.client = None
 
+    # Establish MQTT-Connection
     def connect(self):
-        # Establish MQTT-Connection
         try:
             self.client = MQTTClient(self.client_id, self.broker, user=self.user, password=self.password)
             self.client.set_callback(self.on_message)
@@ -25,13 +27,13 @@ class MQTTHandler:
             Log('MQTT', f'[ FAIL  ]: Connection failed - {e}')
             return False
 
+    # process incomming messages
     def on_message(self, topic, msg):
         try:
-            nachricht = msg.decode('utf-8')
-            # Log('MQTT', f'[ INFO  ]: Received message: {nachricht}')
+            in_message = msg.decode('utf-8')
             
             import ujson as json
-            payload = json.loads(nachricht)
+            payload = json.loads(in_message)
 
             if payload.get('sub_type') == 'admin' and payload.get('command') == 'get_update':
                 modules = payload.get('module')  # string or list
@@ -40,28 +42,28 @@ class MQTTHandler:
                 return
 
             from order import run
-            ans = run(nachricht)
+            ans = run(in_message)
             if ans:
                 self.publish(f"{self.client_id}/status", str(ans))
 
         except Exception as e:
             Log('MQTT', f'[ FAIL  ]: Message processing failed - {e}')
 
+    # Subscribe to the topic
     def subscribe(self, topic):
-        # Subscribe-function
         if self.client:
             self.client.subscribe(topic)
             Log('MQTT', f'[ INFO  ]: Subscribed to {topic}')
-            self.publish(self.client_id, 'online')
+            self.publish(f"{self.client_id}/status", 'online')
 
+    # Publish-function
     def publish(self, topic, message, retain=False):
-        # Publish-function
         if self.client:
             self.client.publish(topic, message, retain=retain)
             Log('MQTT', f'[ INFO  ]: Published message to {topic}: {message}')
 
+    # Check for incoming messages, reconnect if needed
     def check_msg(self):
-        # Check for incoming messages, reconnect if needed
         try:
             if self.client:
                 self.client.check_msg()
@@ -75,12 +77,12 @@ class MQTTHandler:
             Log('MQTT', '[ INFO  ]: MQTT connection closed')
     
     def reconnect(self):
-        Log('MQTT', '[ RECONNECT ]: Attempting to reconnect...')
+        Log('MQTT', '[ INFO  ]: Attempting to reconnect...')
         self.disconnect() 
         while not self.connect(): 
-            Log('MQTT', '[ RECONNECT ]: Reconnect failed, retrying in 5 seconds...')
+            Log('MQTT', '[ INFO  ]: Reconnect failed, retrying in 5 seconds...')
             time.sleep(5) 
-        Log('MQTT', '[ RECONNECT ]: Reconnected successfully!')
+        Log('MQTT', '[ INFO  ]: Reconnected successfully!')
     
     # Update-function
     def perform_ota_update(self, module_name='all', base_url='BASE_URL'):

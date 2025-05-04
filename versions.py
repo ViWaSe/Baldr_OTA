@@ -8,7 +8,7 @@ from LightControl import version as LC
 from json_config_parser import version as json
 from mqtt_handler import version as mqtt_handler
 
-versions = {'main': '6.1.1', 'Client': Client, 'Wifi': Wifi, 'Order': Order, 'NTP': NTP, 'LightControl': LC, 'json': json, 'dev_control': mqtt_handler}
+versions = {'Client': Client, 'Wifi': Wifi, 'Order': Order, 'NTP': NTP, 'LightControl': LC, 'json': json, 'MQTT-Handler': mqtt_handler}
 
 def by_module(module):
     return versions[module]

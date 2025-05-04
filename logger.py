@@ -1,5 +1,5 @@
 # Logger for Issues in the Baldr-Software
-# NOTE: This is the first Version of this program
+
 version = '1.3.2'
 
 import NTP
@@ -7,7 +7,6 @@ import os
 
 ntp_time    = NTP.timestamp()
 
-# TODO: Funktion erweitern: Check, ob Datei existiert!
 # Check size of the logfole. If it reaches 'max_size', delete the content
 def check_and_clear_log(log_file, max_size):
     global version

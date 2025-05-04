@@ -1,8 +1,5 @@
 # Time setting via NTP-Server
 
-# TODO: save time setting in json-file
-# TODO: Sommer- and Wintertime
-
 Version = '1.1'
 
 import machine
@@ -59,5 +56,5 @@ def timestamp():
 
 def getTimeRTC():
     setTimeRTC()
-    tm = tm = machine.RTC().datetime()
+    tm = machine.RTC().datetime()
     return tm

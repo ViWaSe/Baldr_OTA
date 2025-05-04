@@ -4,13 +4,12 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-version = '6.0.1'
+version = '6.0.2'
 
 import utime as time # type: ignore
 from mqtt_handler import MQTTHandler
 from PicoWifi import led_onboard, check_status
 from json_config_parser import config
-from machine import Pin, Timer  # type: ignore
 from logger import Log
 
 # load settings from the config file
@@ -20,40 +19,12 @@ mqttBroker      = settings.get('MQTT-config', 'Broker')
 mqttPort        = settings.get('MQTT-config', 'Port')
 mqttUser        = settings.get('MQTT-config', 'User')
 mqttPW          = settings.get('MQTT-config', 'PW')
-sensor_opt      = settings.get('Options', 'Sensor')
 
 # Create empty variables for watchdog and for the led_toggle-function
 ledCount    = 0
 last_msg    = time.time()
 wd_counter  = 0
 watchdog_last_chk = 0
-
-
-# TODO: Sensor-Funktionen überarbeiten !!!
-# --------------------------- Sensor-Functions ---------------------------
-
-# check, if sensor is installed
-if sensor_opt == True:
-    sensor_Pin  = settings.get('Sensor_settings','Input_Pin')
-    # method      = settings.get('Sensor_settings','Method')
-    db_timer    = settings.get('Sensor_settings','debouncing_period')
-    in_message  = settings.get('Sensor_settings','message')
-
-    sensor 		= Pin(sensor_Pin, Pin.IN, Pin.PULL_DOWN)
-
-# Callback-function
-def sensor_act(timer):
-    mqtt.publish(topic_status, in_message) # type: ignore
-
-# Debouncing function
-def debounce(pin):
-    Timer().init(mode=Timer.ONE_SHOT, period=db_timer, callback=sensor_act) # type: ignore
-
-# Get sensor value
-if sensor_opt == True:
-    sensor.irq(handler=debounce, trigger=Pin.IRQ_RISING)
-
-# ----------------------- End of Sensor-Functions ------------------------ 
 
 mqtt = MQTTHandler(
     client_id=mqttClient,
@@ -65,8 +36,6 @@ mqtt = MQTTHandler(
 def watchdog(watch_time=1800, cooldown=5):
     global last_msg, wd_counter, watchdog_last_chk
     pico_time = time.time()
-
-    # Verhindert mehrfaches Triggern in kurzer Zeit
     if watchdog_last_chk and pico_time - watchdog_last_chk < cooldown:
         return True 
 
@@ -77,14 +46,13 @@ def watchdog(watch_time=1800, cooldown=5):
         
         last_msg = pico_time 
         watchdog_last_chk = pico_time 
-        
-        mqtt.publish(f'{mqttClient}/status', 'watchdog', retain=False)
 
         if wd_counter % 2 == 0:
-            Log('Watchdog', '[ CHECK ]: No Message received. Checking network...')
+            Log('Watchdog', '[ CHECK ]: Checking network...')
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
+    mqtt.publish(f'{mqttClient}/status', 'network-check performed')
     return True
 
 # Function for Onboard-LED as ok indicator and check connection
