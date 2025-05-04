@@ -1,7 +1,7 @@
 # Wifi network module for Prapberry pi pico and ESP-32
 # configuration stored in JSON-File
 # works with micropython v1.21.0 and higher
-version = '6.0.3a'
+version = '6.0.3b'
 
 import utime as time
 import network, rp2, machine
@@ -91,11 +91,14 @@ def connect(max_attempts=5):
     machine.reset()
 
 # Check Wifi connection status. If not successful, try to reconnect.
-def check_status(retries=60, delay=2):
+def check_status(retries=60, delay=0.5, timeout=2):
     import socket
     global wlan
     try:
-        addr = socket.getaddrinfo(test_host, 1883)
+        s = socket.socket()
+        s.settimeout(timeout)
+        s.connect((test_host, 1883))
+        s.close
         Log('WIFI', '[ INFO  ]: Successfully tested network connection!')
         return True
     except Exception as e:
@@ -103,8 +106,10 @@ def check_status(retries=60, delay=2):
         if retries > 0:
             Log('WIFI', '[ INFO  ]: Retrying connection...')
             Log('WIFI', '[ INFO  ]: Number of retries: ' + str(retries))
-            time.sleep(delay)
             retries -=1
+            led_flash(500)
+            time.sleep(delay)
+            led_flash(500)
             connect() 
         else:
             Log('WIFI', '[ FAIL  ]: Failed to reconnect after several attempts. Will reboot now...')
