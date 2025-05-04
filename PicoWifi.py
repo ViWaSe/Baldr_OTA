@@ -1,16 +1,12 @@
 # Wifi network module for Prapberry pi pico and ESP-32
 # configuration stored in JSON-File
 # works with micropython v1.21.0 and higher
-version = '6.0.3'
+version = '6.0.3a'
 
 import utime as time
 import network, rp2, machine
 from json_config_parser import config
 from logger import Log
-
-# Ensure that wifi is ready
-time.sleep(2)
-wlan = network.WLAN(network.STA_IF)
 
 # Get configuration
 settings    = config('/params/config.json')
@@ -18,6 +14,9 @@ rp2.country = settings.get('Wifi-config', 'country')
 wlanSSID    = settings.get('Wifi-config', 'SSID')
 wlanPW      = settings.get('Wifi-config', 'PW')
 wlanName    = settings.get('Wifi-config', 'Hostname')
+
+# Get the Broker-IP to perform later Network-check
+test_host   = settings.get('MQTT-config', 'Broker')
 
 led_onboard = machine.Pin('LED', machine.Pin.OUT, value=0)
 
@@ -31,6 +30,10 @@ ERROR_CODES = {
     -2: 'LINK_NONET',
     -3: 'LINK_BADAUTH'
 }
+
+# Ensure that wifi is ready
+time.sleep(2)
+wlan = network.WLAN(network.STA_IF)
 
 # Handling of WLAN-Status-Codes
 def error_handling(errorno):
@@ -92,7 +95,7 @@ def check_status(retries=60, delay=2):
     import socket
     global wlan
     try:
-        addr = socket.getaddrinfo("google.com", 80)
+        addr = socket.getaddrinfo(test_host, 1883)
         Log('WIFI', '[ INFO  ]: Successfully tested network connection!')
         return True
     except Exception as e:
