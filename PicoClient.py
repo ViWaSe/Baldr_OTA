@@ -4,7 +4,7 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-version = '6.0.2'
+version = '6.0.3-wd'
 
 import utime as time # type: ignore
 from mqtt_handler import MQTTHandler
@@ -45,14 +45,15 @@ def watchdog(watch_time=1800, cooldown=5):
         Log('Watchdog', f'[ INFO  ]: RTC-Time={pico_time} | Last msg={last_msg}')
         
         last_msg = pico_time 
-        watchdog_last_chk = pico_time 
+        watchdog_last_chk = pico_time
+
+        mqtt.publish(f'{mqttClient}/status', 'network-check performed')
 
         if wd_counter % 2 == 0:
             Log('Watchdog', '[ CHECK ]: Checking network...')
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
-    mqtt.publish(f'{mqttClient}/status', 'network-check performed')
     return True
 
 # Function for Onboard-LED as ok indicator and check connection
@@ -81,7 +82,7 @@ def go():
             while True:
                 led_toggle()
                 mqtt.check_msg()
-                #watchdog()
+                watchdog()
         
         except Exception as e:
             Log('MQTT', f'[ FAIL ]: MQTT connection lost! - {e}')
