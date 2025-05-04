@@ -81,7 +81,7 @@ def go():
             while True:
                 led_toggle()
                 mqtt.check_msg()
-                watchdog()
+                #watchdog()
         
         except Exception as e:
             Log('MQTT', f'[ FAIL ]: MQTT connection lost! - {e}')
