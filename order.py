@@ -1,6 +1,6 @@
 # Smarthome Order-Modul by vwall
 
-version = '6.2.1'
+version = '6.2.1b'
 
 import json
 from LightControl import LC
@@ -46,7 +46,8 @@ class Proc:
         command = self.data['command']
         
         command_map = {
-            'echo': lambda: 'alive',
+            'echo': lambda: 'Pico_alive',
+            'alive': lambda: 'OK',
             'offline': lambda: self.handle_offline(),
             'get_version': lambda: self.get_version(),
             'change_qty': lambda: self.change_qty(),
