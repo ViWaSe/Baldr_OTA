@@ -4,7 +4,7 @@ from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
-version = '1.1'
+version = '1.2.0'
 
 class MQTTHandler:
     def __init__(self, client_id, broker, user=None, password=None):
@@ -19,7 +19,7 @@ class MQTTHandler:
         try:
             self.client = MQTTClient(self.client_id, self.broker, user=self.user, password=self.password)
             self.client.set_callback(self.on_message)
-            self.client.set_last_will(topic=f"{self.client_id}/status", msg='{"msg": "offline"}', retain=True)
+            self.client.set_last_will(topic=f"{self.client_id}/status", msg='offline', retain=True)
             self.client.connect()
             Log('MQTT', '[ INFO  ]: MQTT connection established!')
             return True
@@ -28,7 +28,11 @@ class MQTTHandler:
             return False
 
     # process incomming messages
-    def on_message(self, topic, msg):
+    def on_message(
+            self, 
+            topic, 
+            msg
+            ):
         try:
             in_message = msg.decode('utf-8')
             
@@ -57,7 +61,12 @@ class MQTTHandler:
             self.publish(f"{self.client_id}/status", 'online')
 
     # Publish-function
-    def publish(self, topic, message, retain=False):
+    def publish(
+            self, 
+            topic, 
+            message, 
+            retain=False
+            ):
         if self.client:
             self.client.publish(topic, message, retain=retain)
             Log('MQTT', f'[ INFO  ]: Published message to {topic}: {message}')
@@ -70,6 +79,8 @@ class MQTTHandler:
         except Exception as e:
             Log('MQTT', f'[ ERROR ]: MQTT error - {e}')
             self.reconnect()
+    def wait_msg(self):
+        self.client.wait_msg() # type: ignore
 
     def disconnect(self):
         if self.client:
@@ -85,7 +96,11 @@ class MQTTHandler:
         Log('MQTT', '[ INFO  ]: Reconnected successfully!')
     
     # Update-function
-    def perform_ota_update(self, module_name='all', base_url='BASE_URL'):
+    def perform_ota_update(
+            self, 
+            module_name='all', 
+            base_url='BASE_URL'
+            ):
         import urequests as requests
         import os
 

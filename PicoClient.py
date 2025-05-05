@@ -4,7 +4,7 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-version = '6.0.3-wd'
+version = '6.0.3-a'
 
 import utime as time # type: ignore
 from mqtt_handler import MQTTHandler
@@ -33,7 +33,10 @@ mqtt = MQTTHandler(
     password=mqttPW
 )
 
-def watchdog(watch_time=1800, cooldown=5):
+def watchdog(
+        watch_time=1800, 
+        cooldown=5
+        ):
     global last_msg, wd_counter, watchdog_last_chk
     pico_time = time.time()
     if watchdog_last_chk and pico_time - watchdog_last_chk < cooldown:
@@ -47,13 +50,12 @@ def watchdog(watch_time=1800, cooldown=5):
         last_msg = pico_time 
         watchdog_last_chk = pico_time
 
-        mqtt.publish(f'{mqttClient}/status', 'network-check performed')
-
         if wd_counter % 2 == 0:
             Log('Watchdog', '[ CHECK ]: Checking network...')
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
+            mqtt.publish(f'{mqttClient}/status', 'network-check performed')
     return True
 
 # Function for Onboard-LED as ok indicator and check connection
@@ -71,12 +73,10 @@ def led_toggle(onTime=800):
 def go():
     while True:
         if not mqtt.connect():
-            Log('MQTT', '[ ERROR ]: MQTT connection failed! Retrying in 5 seconds...')
             time.sleep(5)
             continue
 
         mqtt.subscribe(f'{mqttClient}/order')
-        Log('MQTT', '[ INFO  ]: MQTT connected, listening for messages...')
         
         try:
             while True:
