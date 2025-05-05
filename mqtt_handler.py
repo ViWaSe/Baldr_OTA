@@ -4,7 +4,7 @@ from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
-version = '1.2.1'
+version = '1.2.1a'
 
 class MQTTHandler:
     def __init__(self, client_id, broker, user=None, password=None):
@@ -13,6 +13,7 @@ class MQTTHandler:
         self.user = user
         self.password = password
         self.client = None
+        self.subscribed_topic = None
 
     # Establish MQTT-Connection
     def connect(self):
@@ -59,6 +60,7 @@ class MQTTHandler:
 
     # Subscribe to the topic
     def subscribe(self, topic):
+        self.subscribed_topic = topic
         if self.client:
             self.client.subscribe(topic)
             Log('MQTT', f'[ INFO  ]: Subscribed to {topic}')
@@ -98,6 +100,7 @@ class MQTTHandler:
             Log('MQTT', '[ INFO  ]: Reconnect failed, retrying in 5 seconds...')
             time.sleep(5) 
         Log('MQTT', '[ INFO  ]: Reconnected successfully!')
+        self.subscribe(self.subscribed_topic)
     
     # Update-function
     def perform_ota_update(
