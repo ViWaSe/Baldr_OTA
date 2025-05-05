@@ -4,7 +4,7 @@ from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
-version = '1.2.0'
+version = '1.2.1'
 
 class MQTTHandler:
     def __init__(self, client_id, broker, user=None, password=None):
@@ -47,8 +47,12 @@ class MQTTHandler:
 
             from order import run
             ans = run(in_message)
+            
             if ans:
-                self.publish(f"{self.client_id}/status", str(ans))
+                if ans == 'conn_lost':
+                    self.reconnect()
+                else:
+                    self.publish(f"{self.client_id}/status", str(ans))
 
         except Exception as e:
             Log('MQTT', f'[ FAIL  ]: Message processing failed - {e}')
