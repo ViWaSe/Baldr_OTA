@@ -45,7 +45,7 @@ def watchdog(
     if pico_time - last_msg > watch_time:
         wd_counter += 1
         Log('Watchdog', '[ CHECK ]: Very quiet here. Checking connection...')
-        Log('Watchdog', f'[ INFO  ]: RTC-Time={pico_time} | Last msg={last_msg}')
+        Log('Watchdog', f'[ INFO  ]: Counter: {wd_counter} | RTC-Time={pico_time} | Last msg={last_msg}')
         
         last_msg = pico_time 
         watchdog_last_chk = pico_time
@@ -55,7 +55,11 @@ def watchdog(
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
-            mqtt.publish(f'{mqttClient}/status', 'network-check performed')
+            Log('Watchdog', '[ CHECK ]: Send echo-Message and wait for answer...')
+            mqtt.publish(f'{mqttClient}/status', 'echo')
+            mqtt.wait_msg()
+            mqtt.publish(f'{mqttClient}/status', 'OK')
+            Log('Watchdog', '[ CHECK ]: Success!')
     return True
 
 # Function for Onboard-LED as ok indicator and check connection
