@@ -4,15 +4,27 @@ from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
-version = '1.2.1a'
+try:
+    from typing import Optional, Any
+except ImportError:
+    Optional = Any = object
+
+version = '1.2.3'
 
 class MQTTHandler:
-    def __init__(self, client_id, broker, user=None, password=None):
+    def __init__(
+            self, 
+            client_id, 
+            broker, 
+            user=None, 
+            password=None
+            ):
+        
         self.client_id = client_id
         self.broker = broker
         self.user = user
         self.password = password
-        self.client = None
+        self.client: Optional[MQTTClient] = None # type: ignore
         self.subscribed_topic = None
 
     # Establish MQTT-Connection
@@ -86,7 +98,8 @@ class MQTTHandler:
             Log('MQTT', f'[ ERROR ]: MQTT error - {e}')
             self.reconnect()
     def wait_msg(self):
-        self.client.wait_msg() # type: ignore
+        if self.client is not None:
+            self.client.wait_msg() 
 
     def disconnect(self):
         if self.client:

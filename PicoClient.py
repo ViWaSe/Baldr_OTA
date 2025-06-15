@@ -4,11 +4,11 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-version = '6.0.3-a'
+version = '6.1.0'
 
-import utime as time # type: ignore
+import utime as time
 from mqtt_handler import MQTTHandler
-from PicoWifi import led_onboard, check_status
+from PicoWifi import led_onboard, check_status, is_pico
 from json_config_parser import config
 from logger import Log
 
@@ -19,6 +19,12 @@ mqttBroker      = settings.get('MQTT-config', 'Broker')
 mqttPort        = settings.get('MQTT-config', 'Port')
 mqttUser        = settings.get('MQTT-config', 'User')
 mqttPW          = settings.get('MQTT-config', 'PW')
+
+# Set the LED-Timer depending on the platform (pico or not)
+if is_pico:
+    led_timer=800
+else:
+    led_timer=400
 
 # Create empty variables for watchdog and for the led_toggle-function
 ledCount    = 0
@@ -33,8 +39,9 @@ mqtt = MQTTHandler(
     password=mqttPW
 )
 
+# Watchdog-function to check if connection still up
 def watchdog(
-        watch_time=1800, 
+        watch_time=60, 
         cooldown=5
         ):
     global last_msg, wd_counter, watchdog_last_chk
@@ -44,26 +51,23 @@ def watchdog(
 
     if pico_time - last_msg > watch_time:
         wd_counter += 1
-        Log('Watchdog', '[ CHECK ]: Very quiet here. Checking connection...')
         Log('Watchdog', f'[ INFO  ]: Counter: {wd_counter} | RTC-Time={pico_time} | Last msg={last_msg}')
         
         last_msg = pico_time 
         watchdog_last_chk = pico_time
 
         if wd_counter % 2 == 0:
-            Log('Watchdog', '[ CHECK ]: Checking network...')
+            Log('Watchdog', '[ CHECK ]: Very quiet here. Checking connection...')
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
-            Log('Watchdog', '[ CHECK ]: Send echo-Message and wait for answer...')
             mqtt.publish(f'{mqttClient}/status', 'echo')
             mqtt.wait_msg()
-            mqtt.publish(f'{mqttClient}/status', 'OK')
             Log('Watchdog', '[ CHECK ]: Success!')
     return True
 
 # Function for Onboard-LED as ok indicator and check connection
-def led_toggle(onTime=800):
+def led_toggle(onTime=led_timer):
     global ledCount
     ledCount +=1
     time.sleep_ms(1)

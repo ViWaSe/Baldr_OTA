@@ -1,7 +1,6 @@
 # Simple script to start the Device
-version = '6.1.1'
+version = '6.3.3a'
 
-# add subdirectories to path
 import PicoWifi as wlan
 import PicoClient as MQTT
 import LightControl
