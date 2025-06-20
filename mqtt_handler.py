@@ -137,6 +137,19 @@ class MQTTHandler:
         import urequests as requests
         import os
 
+        if module_name == 'all':
+            module_name = [
+                'main.py',
+                'LightControl.py',
+                'PicoClient.py',
+                'PicoWifi.py',
+                'mqtt_handler.py',
+                'order.py',
+                'logger.py',
+                'Led_controller.py',
+                'config_migration.py'
+                ]
+
         def update_single_module(name, url):
             try:
                 Log('OTA', f'[ INFO  ]: Downloading {name} from {url}')
