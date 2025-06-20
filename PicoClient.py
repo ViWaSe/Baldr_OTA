@@ -4,7 +4,7 @@
 # The incoming orders are processed and executed by order.py and the answer is published to the status-topic
 # Settings stored in config.json
 
-version = '6.1.0'
+version = '6.2.1'
 
 import utime as time
 from mqtt_handler import MQTTHandler
@@ -19,6 +19,7 @@ mqttBroker      = settings.get('MQTT-config', 'Broker')
 mqttPort        = settings.get('MQTT-config', 'Port')
 mqttUser        = settings.get('MQTT-config', 'User')
 mqttPW          = settings.get('MQTT-config', 'PW')
+publish_in_Json = settings.get('MQTT-config', 'publish_in_json')
 
 # Set the LED-Timer depending on the platform (pico or not)
 if is_pico:
@@ -36,15 +37,19 @@ mqtt = MQTTHandler(
     client_id=mqttClient,
     broker=mqttBroker,
     user=mqttUser,
-    password=mqttPW
+    password=mqttPW,
+    pinjson=publish_in_Json # type: ignore
 )
 
 # Watchdog-function to check if connection still up
 def watchdog(
         watch_time=60, 
-        cooldown=5
+        cooldown=5,
+        timeout_loops=5,
+        timeout_pause=500
         ):
     global last_msg, wd_counter, watchdog_last_chk
+
     pico_time = time.time()
     if watchdog_last_chk and pico_time - watchdog_last_chk < cooldown:
         return True 
@@ -61,9 +66,20 @@ def watchdog(
             if not check_status():
                 Log('Watchdog', '[ FAIL ]: No Connection to Wifi. See Wifi.log for details!')
                 return False
+            
             mqtt.publish(f'{mqttClient}/status', 'echo')
-            mqtt.wait_msg()
-            Log('Watchdog', '[ CHECK ]: Success!')
+            mqtt.set_rec(False)
+
+            for i in range (timeout_loops):
+                mqtt.check_msg()
+                state = mqtt.get_rec()
+                if state:
+                    Log('Watchdog', '[ CHECK ]: Connection still up!')
+                    break
+                time.sleep_ms(timeout_pause)
+            if not state:
+                    Log('Watchdog', '[ WARN  ]: Message wait timeout. Probably connection lost')
+                    mqtt.reconnect()
     return True
 
 # Function for Onboard-LED as ok indicator and check connection

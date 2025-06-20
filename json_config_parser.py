@@ -14,7 +14,7 @@ class config(object):
     
     def __init__(
             self, 
-            file='config.json', 
+            file='config.json', # hallo
             layers=2
     ):
         self.file   = file

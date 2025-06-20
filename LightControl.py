@@ -5,7 +5,7 @@
 # NOTE: The "type: ignore" commtents are for the vs-code micropico extension only! The main reason is that the values from the JSON-File are unknown
 # NOTE: For WW/CW LEDs (24V): setting bpp = 3 is required (Byte 0=warm, 1=cold, 2=not used)
 
-version='6.0.5'
+version='6.4.0'
 
 import utime as time
 from neopixel import NeoPixel
@@ -34,7 +34,8 @@ class LightControl:
         if pixel_value is None:
             missing_pixel_error = "Missing 'led_gty' in config.json!"
             Log('LC',f' [ ERROR ]: {missing_pixel_error}')
-            raise ValueError(missing_pixel_error)
+            return missing_pixel_error
+        
         self.pixel: int = int(pixel_value)
 
         self.level = 0
@@ -51,7 +52,7 @@ class LightControl:
             level=1
             ):
         color = list(color)
-        if len(color) < 4:
+        while len(color) < 4:
             color.append(0)
         for i in range(self.pixel):
             self.np[i] = ( 
@@ -125,7 +126,7 @@ class LightControl:
         if light_level is None:
             light_level = self.level
         color = list(color)
-        if len(color) < 4:
+        while len(color) < 4:
             color.append(0)
         try:
             self.np[segment] = (
@@ -150,7 +151,7 @@ class LightControl:
         
         line = start
         color = list(color)
-        if len(color) < 4:
+        while len(color) < 4:
             color.append(0)
         if dir == 0:
             while line < self.pixel: 
@@ -178,6 +179,33 @@ class LightControl:
         self.status.save_param(param='color', new_value=color)
         return color
     
+    # set Color by soft transition
+    def set_smooth(
+            self, 
+            target_color, 
+            speed=10, 
+            steps=50
+            ):
+        
+        current = list(self.cache) # type: ignore
+        target = list(target_color)
+        
+        while len(target) < 4:
+            target.append(0)
+        
+        for step in range(1, steps + 1):
+            intermediate = [
+                int(current[i] + (target[i] - current[i]) * step / steps)
+                for i in range(4) 
+            ]
+        
+            self.static(intermediate, self.level)
+            time.sleep_ms(speed)
+        
+        self.cache = target
+        self.status.save_param(param='color', new_value=target)
+        return target
+
     def change_autostart(self, value):
         self.status.save_param(param='autostart', new_value=value)
     

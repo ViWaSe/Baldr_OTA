@@ -1,12 +1,13 @@
 # Wifi network module for Prapberry pi pico and ESP-32
 # configuration stored in JSON-File
 # works with micropython v1.21.0 and higher
-version = '6.1.4'
+version = '6.4.0'
 
 import utime as time
 import network, machine
 from json_config_parser import config
 from logger import Log
+from Led_controller import LedController
 import sys
 
 # Get configuration
@@ -15,33 +16,20 @@ wlanSSID    = settings.get('Wifi-config', 'SSID')
 wlanPW      = settings.get('Wifi-config', 'PW')
 wlanName    = settings.get('Wifi-config', 'Hostname')
 
+led_active  = settings.get('Wifi-config', 'led_active')
+led_set = {
+    'onboard_led': settings.get('Wifi-config', 'onboard_led'), 
+    'led_inverted': settings.get('Wifi-config', 'led_inverted')
+    }
+
 # check if pico is used or not
 is_pico = sys.platform == 'rp2'
 
 # Get the Broker-IP to perform later Network-check
 test_host   = settings.get('MQTT-config', 'Broker')
 
-# Create inverted-led-class for ESP32-S3
-class inverted_led:
-    def __init__(self, pin):
-        self.led = pin
-    def on(self):
-        self.led.off()
-    def off(self):
-        self.led.on()
-    def toggle(self):
-        self.led.value(not self.led.value())
-
-# If Pico, use normal settings - if not, use inverted led-setting and onboard_led from config.json
-if is_pico:
-    import rp2
-    led_onboard = machine.Pin('LED', machine.Pin.OUT, value=0)
-else:
-    led_inverted = settings.get('Wifi-config', 'led_inverted')
-    if led_inverted == True:
-        led_onboard = inverted_led(machine.Pin(settings.get('Wifi-config', 'onboard_led'), machine.Pin.OUT))
-    else:
-        led_onboard = machine.Pin(settings.get('Wifi-config', 'onboard_led'), machine.Pin.OUT)
+led_onboard = LedController(is_pico, led_set)
+led_onboard.set_active(led_active) # type: ignore
 
 # wlan-status codes
 ERROR_CODES = {
@@ -78,6 +66,7 @@ def led_flash(on=1000, off=0):
 def connect(max_attempts=5):
     global wlan
     if is_pico:
+        import rp2
         rp2.country = settings.get('Wifi-config', 'country')
         network.hostname(wlanName)
         wlan.config(pm=0xa11140)

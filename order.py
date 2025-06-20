@@ -1,6 +1,6 @@
 # Smarthome Order-Modul by vwall
 
-version = '6.3.2'
+version = '6.4.1'
 
 import json
 from LightControl import LC as LightControl
@@ -17,29 +17,38 @@ class Proc:
     def LC(self):
         command = self.data['command']
         payload = self.data['payload']
-        speed   = self.data['speed']
+        
         if 'new_value' in self.data:
             new_value = self.data['new_value']
-        if 'pixel' in self.data:
-            pixel = self.data['pixel']
-        if 'format' in self.data:
-            color_format = self.data['format']
-            if color_format == 'hex':
-                color = hex_to_rgb(str(payload)) if color_format == 'hex' else payload
-            else:
-                color = payload
+        
+        if isinstance(payload, list):
+            color = payload
+        if isinstance(payload, str):
+            try:
+                color = hex_to_rgb(str(payload))
+            except ValueError:
+                return 'Failed! Payload is not list or hex!'
+        
+        if 'speed' in self.data:
+            speed   = self.data['speed']
+        else:
+            speed = 5
+        
+        if 'steps' in self.data:
+            steps = self.data['steps']
+        else:
+            steps = 50
 
         command_map = {
             'dim': lambda: LightControl.set_dim(payload, speed),
             'line': lambda: LightControl.line(color, speed),
             'change_autostart': lambda: LightControl.change_autostart(new_value),
             'change_pixel_qty': lambda: LightControl.change_pixel_qty(new_value),
-            'single': lambda: LightControl.single(color=payload, segment=pixel) 
+            'smooth': lambda: LightControl.set_smooth(color, speed, steps) 
         }
         
         if command in command_map:
             command_map[command]()
-            # Log('Order', f'[ INFO  ]: Order sucessful. Command = {command}')
             return True
         else:
             Log('Order', f'[ INFO  ]: Command not found. Command = {command}')
@@ -66,11 +75,20 @@ class Proc:
             'set_GMT_offset': lambda: self.change_GMT_time(new_value),
             'get_timestamp': lambda: self.get_timestamp(),
             'reboot': lambda: self.reboot(),
-            'get_sysinfo': lambda: self.get_sysinfo()
+            'get_sysinfo': lambda: self.get_sysinfo(),
+            'onboard_led_active': lambda: self.onboard_led_active(new_value),
+            'publish_in_json': lambda: self.pinjson(new_value)
         }
         
         return command_map.get(command, lambda: 'Command not found')()
     
+    def pinjson(self, value: bool):
+        from PicoClient import settings, publish_in_Json
+        if publish_in_Json != value:
+            settings.save_param(param='publish_in_json', new_value=value)
+            publish_in_Json = value
+        return True
+
     # Log when Broker is offfline
     def handle_offline(self):
         Log('MQTT', '[ INFO  ]: Broker is offline under normal conditions')
@@ -92,6 +110,11 @@ class Proc:
             machine.reset()
         else:
             return 'Wrong password. Try >loki<!'
+    
+    def onboard_led_active(self, new_state):
+        from PicoWifi import led_onboard
+        led_onboard.set_active(new_state)
+        return 'not yet implemented. Sorry!'
     
     # Get Timestamp from NTP-Module
     def get_timestamp(self):

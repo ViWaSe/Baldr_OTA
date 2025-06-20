@@ -1,5 +1,5 @@
 # Simple script to start the Device
-version = '6.3.3a'
+version = '6.4.0'
 
 import PicoWifi as wlan
 import PicoClient as MQTT

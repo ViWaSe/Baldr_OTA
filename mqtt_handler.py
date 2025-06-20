@@ -1,15 +1,16 @@
 # New MQTT-Handler Module for Baldr V6.x
 
+version = '1.3.1'
+
 from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
 
+# If typing don't exist:
 try:
     from typing import Optional, Any
 except ImportError:
     Optional = Any = object
-
-version = '1.2.3'
 
 class MQTTHandler:
     def __init__(
@@ -17,7 +18,8 @@ class MQTTHandler:
             client_id, 
             broker, 
             user=None, 
-            password=None
+            password=None,
+            pinjson=False
             ):
         
         self.client_id = client_id
@@ -26,6 +28,8 @@ class MQTTHandler:
         self.password = password
         self.client: Optional[MQTTClient] = None # type: ignore
         self.subscribed_topic = None
+        self.injson = pinjson
+        self.received = False
 
     # Establish MQTT-Connection
     def connect(self):
@@ -46,9 +50,10 @@ class MQTTHandler:
             topic, 
             msg
             ):
+
         try:
             in_message = msg.decode('utf-8')
-            
+            self.set_rec(True)
             import ujson as json
             payload = json.loads(in_message)
 
@@ -83,11 +88,14 @@ class MQTTHandler:
             self, 
             topic, 
             message, 
-            retain=False
+            retain=False,
             ):
         if self.client:
-            self.client.publish(topic, message, retain=retain)
-            Log('MQTT', f'[ INFO  ]: Published message to {topic}: {message}')
+            if self.injson:
+                self.client.publish(topic, f'{{"msg": "{message}"}}', retain=retain)
+            else:
+                self.client.publish(topic, message, retain=retain)
+            # Log('MQTT', f'[ INFO  ]: Published message to {topic}: {message}')
 
     # Check for incoming messages, reconnect if needed
     def check_msg(self):
@@ -115,6 +123,11 @@ class MQTTHandler:
         Log('MQTT', '[ INFO  ]: Reconnected successfully!')
         self.subscribe(self.subscribed_topic)
     
+    def set_rec(self, state):
+        self.received=state
+    def get_rec(self):
+        return self.received
+    
     # Update-function
     def perform_ota_update(
             self, 
@@ -132,24 +145,26 @@ class MQTTHandler:
                     with open(name, "w") as f:
                         f.write(response.text)
                     Log('OTA', f'[ INFO  ]: {name} updated successfully')
-                    self.publish(f"{self.client_id}/status", f'{{"msg": "{name} update successful"}}')
+                    self.publish(f"{self.client_id}/status", f'{name} update was successful!')
                 else:
                     Log('OTA', f'[ FAIL  ]: Could not download {name}')
-                    self.publish(f"{self.client_id}/status", f'{{"msg": "update failed for {name}"}}')
+                    self.publish(f"{self.client_id}/status", f'update failed for {name}')
             except Exception as e:
-                Log('OTA', f'[ FAIL  ]: Update error for {name} - {e}')
-                self.publish(f"{self.client_id}/status", f'{{"msg": "update error for {name}: {e}"}}')
+                Log('OTA', f'[ FAIL  ]: Update failed for {name} - {e}')
+                self.publish(f"{self.client_id}/status", f'update error for {name}: {e}')
 
         if isinstance(module_name, list):
             for mod in module_name:
                 url = base_url + mod
                 update_single_module(mod, url)
+            
+            self.publish(f"{self.client_id}/status", 'Successfully updated all modules! Checking for config-schema difference...')
+            import config_migration
+            
+            self.publish(f"{self.client_id}/status", 'OTA-Update done! Will now reboot...')            
             Log('OTA', '[ INFO  ]: Update done. Will now reboot ...')
             import machine
             machine.reset()
+        
         else:
-            url = base_url + module_name
-            update_single_module(module_name, url)
-            if module_name.lower() == "main.py":
-                import machine
-                machine.reset()
+            self.publish(f'{self.client_id}/status', 'No module updated. Please send the modules in list-format! Try the provided string from github.')
