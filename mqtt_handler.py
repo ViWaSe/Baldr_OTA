@@ -1,10 +1,11 @@
 # New MQTT-Handler Module for Baldr V6.x
 
-version = '1.3.1'
+version = '1.4.1a'
 
 from umqtt_simple import MQTTClient
 from logger import Log
 import utime as time
+import json
 
 # If typing don't exist:
 try:
@@ -58,8 +59,8 @@ class MQTTHandler:
             payload = json.loads(in_message)
 
             if payload.get('sub_type') == 'admin' and payload.get('command') == 'get_update':
-                modules = payload.get('module')  # string or list
-                base_url = payload.get('base_url', 'PUT_INYOUR_URL')
+                modules = payload.get('module') 
+                base_url = payload.get('base_url')
                 self.perform_ota_update(modules, base_url)
                 return
 
@@ -70,10 +71,11 @@ class MQTTHandler:
                 if ans == 'conn_lost':
                     self.reconnect()
                 else:
-                    self.publish(f"{self.client_id}/status", str(ans))
+                    self.publish(f"{self.client_id}/status", ans)
 
         except Exception as e:
             Log('MQTT', f'[ FAIL  ]: Message processing failed - {e}')
+            Log('MQTT', f'[ INFO  ]: Message: {msg} | Order result: {ans}')
 
     # Subscribe to the topic
     def subscribe(self, topic):
@@ -81,20 +83,26 @@ class MQTTHandler:
         if self.client:
             self.client.subscribe(topic)
             Log('MQTT', f'[ INFO  ]: Subscribed to {topic}')
-            self.publish(f"{self.client_id}/status", 'online')
+            self.publish(f"{self.client_id}/status", {"msg": "online", "is_err_msg": False, "origin": "mqtt_handler"})
 
     # Publish-function
     def publish(
             self, 
             topic, 
             message, 
-            retain=False,
+            retain=False
             ):
-        if self.client:
-            if self.injson:
-                self.client.publish(topic, f'{{"msg": "{message}"}}', retain=retain)
-            else:
-                self.client.publish(topic, message, retain=retain)
+        if not self.client:
+            return
+        if self.injson:
+            payload = {
+                "msg": message.get("msg"),
+                "is_err_msg": message.get("is_err_msg"),
+                "origin": message.get("origin")
+            }
+            self.client.publish(topic, json.dumps(payload), retain=retain)
+        else:
+            self.client.publish(topic, str(message.get("msg")), retain=retain)
             # Log('MQTT', f'[ INFO  ]: Published message to {topic}: {message}')
 
     # Check for incoming messages, reconnect if needed
@@ -127,6 +135,8 @@ class MQTTHandler:
         self.received=state
     def get_rec(self):
         return self.received
+    def set_publish_in_json(self, state):
+        self.injson = state
     
     # Update-function
     def perform_ota_update(
@@ -147,7 +157,9 @@ class MQTTHandler:
                 'order.py',
                 'logger.py',
                 'Led_controller.py',
-                'config_migration.py'
+                'json_config_parder.py',
+                'NTP.py',
+                'versions.py'
                 ]
 
         def update_single_module(name, url):
@@ -158,26 +170,23 @@ class MQTTHandler:
                     with open(name, "w") as f:
                         f.write(response.text)
                     Log('OTA', f'[ INFO  ]: {name} updated successfully')
-                    self.publish(f"{self.client_id}/status", f'{name} update was successful!')
+                    self.publish(f"{self.client_id}/status", {"msg": f'{name} update was successful!', "is_err_msg": False, "origin": "OTA_Update"})
                 else:
                     Log('OTA', f'[ FAIL  ]: Could not download {name}')
-                    self.publish(f"{self.client_id}/status", f'update failed for {name}')
+                    self.publish(f"{self.client_id}/status", {"msg": f'update failed for {name}', "is_err_msg": True, "origin": "OTA_Update"})
             except Exception as e:
                 Log('OTA', f'[ FAIL  ]: Update failed for {name} - {e}')
-                self.publish(f"{self.client_id}/status", f'update error for {name}: {e}')
+                self.publish(f"{self.client_id}/status", {"msg": f'update error for {name}: {e}', "is_err_msg": True, "origin": "OTA_Update"})
 
         if isinstance(module_name, list):
             for mod in module_name:
                 url = base_url + mod
                 update_single_module(mod, url)
             
-            self.publish(f"{self.client_id}/status", 'Successfully updated all modules! Checking for config-schema difference...')
-            import config_migration
-            
-            self.publish(f"{self.client_id}/status", 'OTA-Update done! Will now reboot...')            
+            self.publish(f"{self.client_id}/status", {"msg": "OTA-Update done! Will now reboot...", "is_err_msg": False, "origin": "OTA_Update"})       
             Log('OTA', '[ INFO  ]: Update done. Will now reboot ...')
             import machine
             machine.reset()
         
         else:
-            self.publish(f'{self.client_id}/status', 'No module updated. Please send the modules in list-format! Try the provided string from github.')
+            self.publish(f"{self.client_id}/status", {"msg": "No module updated. Please send the modules in list-format! Try the provided string from github.", "is_err_msg": True, "origin": "OTA_Update"})
