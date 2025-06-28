@@ -73,6 +73,8 @@ class MQTTHandler:
                     self.reconnect()
                 else:
                     self.publish(f"{self.client_id}/status", ans)
+            if not ans:
+                ans = '>> No order processing <<'
 
         except Exception as e:
             Log('MQTT', f'[ FAIL  ]: Message processing failed - {e}')
