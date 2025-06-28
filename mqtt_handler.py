@@ -1,6 +1,6 @@
 # New MQTT-Handler Module for Baldr V6.x
 
-version = '1.4.1a'
+version = '1.4.1'
 
 from umqtt_simple import MQTTClient
 from logger import Log
@@ -51,7 +51,8 @@ class MQTTHandler:
             topic, 
             msg
             ):
-
+        if not msg:
+            pass
         try:
             in_message = msg.decode('utf-8')
             self.set_rec(True)
